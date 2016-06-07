@@ -1,0 +1,2089 @@
+<!-- vim: set ts=4: -->
+<!-- TODO: generate some or all of this automatically from the C++ source -->
+
+<!-- TODO: add a field for maximum instance count -->
+<!-- TODO: add a field for exclusive to other objects (not allowed if they're used) -->
+<!-- TODO: add "parameters" fields, to replace the form html stuff -->
+
+<script type="text/javascript">
+	RED.nodes.registerType('InputJacks',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "inJacks",					// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:8,
+		category: 'input-function',
+		color:"#E6E0F8",
+    label: "Input Jacks"
+	});
+</script>
+<script type="text/x-red" data-help-name="InputJacks">
+	<h3>Input Jacks</h3>
+	<p>Receive audio signals or control voltages from the outside world via input jacks for use in patch</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Jack 1 (Patch In 1)</td></tr>
+		<tr class=odd><td align=center>Out 2</td><td>Jack 2 (Patch In 2)</td></tr>
+		<tr class=odd><td align=center>Out 3</td><td>Jack 3 (Patch In 3)</td></tr>
+		<tr class=odd><td align=center>Out 4</td><td>Jack 4 (Patch In 4)</td></tr>
+		<tr class=odd><td align=center>Out 5</td><td>Jack 5 (Patch In 5)</td></tr>
+		<tr class=odd><td align=center>Out 6</td><td>Jack 6 (Patch In 6)</td></tr>
+		<tr class=odd><td align=center>Out 7</td><td>Jack 7 (Patch In 7)</td></tr>
+		<tr class=odd><td align=center>Out 8</td><td>Jack 8 (Patch In 8)</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>A voltage range of [-10, 10] at the jacks will correspond to a range of [-10, 10] in the patch</p>
+	
+</script>
+<script type="text/x-red" data-template-name="InputJacks">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+
+<!--We don't need the knobs object anymore due to the three single knob objects we have, but we'll keep the code around in case we decide to add it back in in the future. -->
+<!--  
+
+<script type="text/javascript">
+	RED.nodes.registerType('Knobs',{ 	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "knobs",						// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:5,
+		category: 'input-function',
+		color:"#E6E0F8",
+    label: "Knobs"
+	});
+</script>
+<script type="text/x-red" data-help-name="Knobs">
+	<h3>Input Knobs</h3>
+	<p>Receive values of knobs for use in patch</p>
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Patch Knob 1</td></tr>
+		<tr class=odd><td align=center>Out 2</td><td>Patch Knob 2</td></tr>
+		<tr class=odd><td align=center>Out 3</td><td>Patch Knob 3</td></tr>
+		<tr class=odd><td align=center>Out 4</td><td>Patch Knob 4</td></tr>
+		<tr class=odd><td align=center>Out 5</td><td>Patch Knob 5</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>Touch the metal top of a knob to see its name. </p>
+	<p>All knobs have an output range of [1e-6, 1].  Use math objects to scale as needed.  </p>
+	<p>All knobs are configured to span their entire range in two revolutions when in coarse mode.  In fine mode twenty revolutions are needed.</p>
+	<p>Knob values will saturate at each end of their range.  In other words, there is no wrapping from the largest value to the smallest value or vice versa.</p>
+	<p>The step of each knob is linear.  Use math objects to create other mappings.</p>
+	<p>Only one instance is allowed per patch</p>
+</script>
+<script type="text/x-red" data-template-name="Knobs">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+-->
+
+<script type="text/javascript">
+	RED.nodes.registerType('Buttons',{ 	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "buttons",				// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:2,
+    //label:"Boutuns",
+    label: function() {
+      return "Buttons\n" + this.LeftButtonType + "\n" + this.RightButtonType;
+    },
+		category: 'input-function',
+		color:"#E6E0F8",
+		defaults: {
+			LeftButtonType: {value:"Toggle"},
+			RightButtonType: {value:"Toggle"}
+        },		
+		
+		// note that these properties are under _def, are essentially just defaults 
+		// which are shared across all instances of this object type.  once the values 
+		// are changed in the callback, we'll have local/unique version of these in 
+		// the object. the export code has been modified to look in both places when 
+		// generating syntax, so that there isn't an exception if the values have not
+		// been changed yet.
+		// this is a bit hacky but the whole pull down menu thing is a bit hacky...
+		LButtTypeEnum:0,
+		RButtTypeEnum:0,
+		
+		propertyStrings: ['LButtTypeEnum', 'RButtTypeEnum'],	
+		
+		oneditsave: function()
+		{
+			// left button
+			var x = document.getElementById("LButtonPullDown");
+			valFromPullDown = x.value;
+			if (valFromPullDown != ' ')
+			{
+				if (valFromPullDown == 'Toggle')
+				{
+					var enumVal = 0;
+				}
+				else
+				{
+					var enumVal = 1;
+				}
+			
+				this.LButtTypeEnum = enumVal;
+				this.LeftButtonType = valFromPullDown;
+			}
+			
+			// right button
+			var x = document.getElementById("RButtonPullDown");
+			valFromPullDown = x.value;
+			if (valFromPullDown != ' ')
+			{
+				if (valFromPullDown == 'Toggle')
+				{
+					var enumVal = 0;
+				}
+				else
+				{
+					var enumVal = 1;
+				}
+			
+				this.RButtTypeEnum = enumVal;
+				this.RightButtonType = valFromPullDown;
+			}
+			
+			//console.log(this)
+		},		
+	});
+
+</script>
+<script type="text/x-red" data-help-name="Buttons">
+	<h3>Buttons</h3>
+	<p>Receive input from the module's red buttons for use in patch</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Left Button Behavior</td><td>Define whether the button's output should toggle when pressed (toggle) or reflect its current state (momentary) (Default = toggle)</td></tr>
+		<tr class=odd><td align=center>Right Button Behavior</td><td>Define whether the button's output should toggle when pressed (toggle) or reflect its current state (momentary) (Default = toggle)</td></tr>		
+	</table>	
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Left Red Button</td></tr>
+		<tr class=odd><td align=center>Out 2</td><td>Right Red Button</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>Output is always either 5.0 or 0.0</p>
+	<p>In momentary mode, the output will be 5.0 while the button is pressed down and 0.0 otherwise.</p>
+	<p>In toggle mode, the output will change to 5.0 if it is pressed down when the output is 0.0.  Likewise, it will change to 0.0 if it is pressed down when the output is 5.0</p>	
+
+</script>
+<script type="text/x-red" data-template-name="Buttons">
+	<div class="form-row">
+		<label>Left Button Behavior</label>
+		 <select id = "LButtonPullDown">
+			<option value=" "> </option>
+			<option value="Toggle">Toggle</option>
+			<option value="Momentary">Momentary</option>
+		</select> 	
+	</div>
+	<div class="form-row">
+		<label>Right Button Behavior</label>
+		<select id = "RButtonPullDown">
+			<option value=" "> </option>
+			<option value="Toggle">Toggle</option>		
+			<option value="Momentary">Momentary</option>
+		</select> 	
+	</div>
+</script>
+
+
+<script type="text/javascript">
+	RED.nodes.registerType('OutputJacks',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "outJacks",					// this is the name that is displayed in the patch on the website
+		inputs:6,
+		outputs:0,
+		category: 'output-function',
+		color:"#CCFFCC",
+    label: "Output Jacks"
+	});
+</script>
+<script type="text/x-red" data-help-name="OutputJacks">
+	<h3>Output Jacks</h3>
+	<p>Send audio signals or control voltages from a patch to the outside world via output jacks</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Jack A - Patch Out 1</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Jack B - Patch Out 2</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Jack C - Patch Out 3</td></tr>
+		<tr class=odd><td align=center>In 4</td><td>Jack D - Patch Out 4</td></tr>
+		<tr class=odd><td align=center>In 5</td><td>Jack E - Patch Out 5</td></tr>
+		<tr class=odd><td align=center>In 6</td><td>Jack F - Patch Out 6</td></tr>
+
+	</table>
+
+	<h4>Notes</h4>
+	<p>Expected input range of [-10, 10] corresponds to output voltages of [-10, 10].  Anything outside of the [-10, 10] range will clip.  </p>
+	<p>Only one instance is allowed per patch</p>
+	<p>All unconnected outputs will have 0V at their respective jacks</p>
+	
+</script>
+<script type="text/x-red" data-template-name="OutputJacks">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('Abs',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "abs",				// this is the name that is displayed in the patch on the website
+		inputs:1,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+    label: "abs"
+	});
+</script>
+<script type="text/x-red" data-help-name="Abs">
+	<h3>Absolute Value</h3>
+	<p>Take the absolute value of a signal</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>abs(Signal)</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>No effort has been made to band limit the output of this object, so there will be aliasing</p>
+	<p>An unconnected input will produce an output of 0</p>
+</script>
+<script type="text/x-red" data-template-name="Abs">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('Adder',{// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "add",				// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+    label: "+"
+	});
+</script>
+<script type="text/x-red" data-help-name="Adder">
+	<h3>Add</h3>
+	<p>Add (or sum or mix) two signals</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal 1</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Signal 2</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Signal 1 + Signal 2</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>All unconnected inputs contribute zeroes to the sum at the output</p>
+	
+</script>
+<script type="text/x-red" data-template-name="Adder">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('Mult',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "multiply",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+    label: "*"
+	});
+</script>
+<script type="text/x-red" data-help-name="Mult">
+	<h3>Multiply</h3>
+	<p>Multiply (Modulate) two signals</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal 1</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Signal 2</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Signal 1 * Signal 2</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>No effort has been made to band limit the output of this object, so there can be aliasing in some cases</p>
+	<p>If both inputs are unconnected the output will be 1V</p>
+	<p>If only one of the two inputs is connected, the output will be equal to the connected input</p>
+	
+</script>
+<script type="text/x-red" data-template-name="Mult">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('Subtractor',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "subtract",				// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+    label: "-"
+	});
+</script>
+<script type="text/x-red" data-help-name="Subtractor">
+	<h3>Subtract</h3>
+	<p>Subtract two signals</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal 1</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Signal 2</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Signal 1 - Signal 2</td></tr>
+	</table>
+	
+	<h4>Notes</h4>
+	<p>All unconnected inputs contribute zeroes to the difference at the output</p>	
+	
+</script>
+<script type="text/x-red" data-template-name="Subtractor">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<!--We don't need the knobs object anymore because all objects have voct conversions built into them and all blocks accept voltages in an expected range so this object isn't needed anymore.  We'll keep the code around in case we decide to add it back in in the future  -->
+<!--  
+
+<script type="text/javascript">
+	RED.nodes.registerType('VOct2Freq',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "vOct2Freq",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+		defaults: {
+            BaseFreq: {value:"440"}
+        },	
+		propertyStrings: ['BaseFreq'],	
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+					//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			
+			}
+		},
+    label: "vOct2Freq"
+	});
+</script>
+<script type="text/x-red" data-help-name="VOct2Freq">
+	<h3>Voltage Per Octave to Frequency Conversion</h3>
+	<p>Convert a voltage per octave signal to frequency for use with the frequency inputs on other objects</p>
+
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The output frequency when 0 is applied to both inputs (Default = 440Hz).  This value must be positive and non-zero. </td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Tuning Input</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>V/Oct Input</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Base Frequency * 2^(Tuning Input + V/Oct Input)</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>Typical use is to connect a knob to the tuning input to use for tuning</p>
+	<p>Technically the input order doesn't matter given that they are summed before the 2^x conversion. </p>
+	<p>It is up to the patch designer to scale the inputs accordingly for this object using mult objects if necessary</p>
+	
+	<h4>Examples</h4>
+	<p>If input1 = 2.0 and input2 = 0.1, then the output will be 2.1 octaves above the base frequency</p>
+	<p>If input1 = 1.1 and input2 = -0.1, then the output will be 1.0 octaves above the base frequency</p>
+	<p>If input1 = -3.12 and input2 = 0.5, then the output will be 2.62 octaves below the base frequency</p>
+	<p>If input1 = -4.56 and input2 = -0.3, then the output will be 4.86 octaves below the base frequency</p>
+	
+</script>
+<script type="text/x-red" data-template-name="VOct2Freq">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i> BaseFreq</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+-->
+
+<script type="text/javascript">
+	RED.nodes.registerType('Comparator',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "comp",						// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'logic-function',
+		color:"#FFFF99",
+    label: "compare"
+	});
+</script>
+<script type="text/x-red" data-help-name="Comparator">
+	<h3>Comparator</h3>
+	<p>Compare two inputs</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Input</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Reference Input</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Binary Comparison Output (1 or 0)</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>Output = 1 if Input (In 1) > Reference (In 2)</p>	
+	<p>Output = 0 if Input (In 1) <= Reference (In 2)</p>	
+	<p>Unconnected inputs default to a persistent stream of zeros and thus the output reflects a comparison to zeroes in unconnected cases</p>
+	
+</script>
+<script type="text/x-red" data-template-name="Comparator">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('PercADEnv',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "percADEnv",					// this is the name that is displayed in the patch on the website
+		inputs:3,
+		outputs:1,
+		category: 'envelopes-function',
+		color:"#FF6666",
+		defaults: {
+            TrigThresh: {value:"2.5"},
+        },	
+		propertyStrings: ['TrigThresh'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-TrigThresh");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.TrigThresh;
+				window.alert("Value entered for TrigThresh is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for TrigThresh contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			
+			}
+		},
+    label: "percADEnv"
+	});
+</script>
+<script type="text/x-red" data-help-name="PercADEnv">
+	<h3>Percussive Attack/Decay Envelope</h3>
+	<p>An attack/decay envelope with a linear attack and an exponential decay</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>TrigThresh</td><td>Value above which a rising edge at the trigger input will start an attack (Default = 2.5)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Trigger</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Attack Rate</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Decay Rate</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Envelope Out</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>The attack rate's range is [-5, 5], where -5 corresponds to the fastest attack and +5 corresponds to the slowest attack.</p>	
+	<p>The decay rate's range is [-5, 5], where -5 corresponds to the fastest release and +5 corresponds to the slowest release.</p>		
+	<p>The output's range is [0, 8].</p>
+	<p>A trigger during an attack state is ignored.  In such a case, the attack will continue instead of restart</p>	
+	<p>All unconnected inputs default to 0</p>	
+	
+</script>
+<script type="text/x-red" data-template-name="PercADEnv">
+	<div class="form-row">
+		<label for="node-input-TrigThresh"><i class="icon-tag"></i>TrigThresh</label>
+		<input type="text" id="node-input-TrigThresh">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('ADSREnv',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "adsrEnv",					// this is the name that is displayed in the patch on the website
+		inputs:5,
+		outputs:1,
+		category: 'envelopes-function',
+		color:"#FF6666",
+		defaults: {
+            GateThresh: {value:"2.5"},
+        },	
+		propertyStrings: ['GateThresh'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-GateThresh");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.GateThresh;
+				window.alert("Value entered for GateThresh is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						window.alert("Value entered for GateThresh contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			
+			}
+		},
+    label: "ADSR Env"
+	});
+</script>
+<script type="text/x-red" data-help-name="ADSREnv">
+	<h3>Linear ADSR Envelope</h3>
+	<p>A linear Attack, Decay, Sustain, and Release Envelope</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>GateThresh</td><td>Value above which the signal at the gate input is considered "on". (Default = 2.5)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Gate In</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Attack Rate</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Decay Rate</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Sustain Level</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Release Rate</td></tr>		
+		<tr class=odd><td align=center>Out 1</td><td>Envelope Out</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>The attack rate's range is [-5, 5], where -5 corresponds to the fastest attack and +5 corresponds to the slowest attack.</p>	
+	<p>The decay rate's range is [-5, 5], where -5 corresponds to the fastest decay and +5 corresponds to the slowest decay.</p>		
+	<p>The sustain level's range is [-5, 5], where -5 corresponds to the quietest sustain and +5 corresponds to the loudest sustain.</p>		
+	<p>The release rate's range is [-5, 5], where -5 corresponds to the fastest release and +5 corresponds to the slowest release.</p>	
+	<p>The output's range is [0, 8].</p>
+	<p>Exponential/Logarithmic behavior is achievable by using this object in conjunction with a VCA object in log (not linear) mode</p>	
+	
+	<p>All unconnected inputs default to 0</p>
+	
+</script>
+<script type="text/x-red" data-template-name="ADSREnv">
+	<div class="form-row">
+		<label for="node-input-GateThresh"><i class="icon-tag"></i>TrigThresh</label>
+		<input type="text" id="node-input-GateThresh">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('SinOsc',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "sinOsc",					// this is the name that is displayed in the patch on the website
+		inputs:3,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("Value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}	
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+        label: function() {
+      return "SinOsc \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="SinOsc">
+	<h3>Sine Oscillator</h3>
+	<p>An oscillator with a sinusoidal output</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The output frequency when 0 is applied to both inputs (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>V/Oct In </td></tr>
+		<tr class=odd><td align=center>In 2</td><td>FM (Linear Frequency) In</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Phase</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Oscillator Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>At the linear frequency input, a range of [-5V, 5V] maps to [-10kHz, 10kHz]</p>
+	<p>At the phase input, the accepted range is [-10V, 10V] and that range maps to [-2*pi, 2*pi] radians (or [-360, 360] degrees) in the phase domain</p>
+	<p>The maximum output frequency of this object is 20kHz</p>		
+	<p>All unconnected inputs default to 0</p>	
+	<p>Negative frequencies are not currently supported</p>
+	<p>The range of the output is [-5V, 5V]</p>
+	<p>Nothing has been done to prevent aliasing when the phase input is modulated</p>
+	
+	<p><b> to do: insert a plot of output here</b></p>				
+	
+</script>
+<script type="text/x-red" data-template-name="SinOsc">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('VoltGen',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "voltGen",					// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+
+		defaults: {
+            Voltage: {value:"0"}
+        },		
+		propertyStrings: ['Voltage'],	
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-Voltage");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.Voltage;
+				window.alert("Value entered for Voltage is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for Voltage contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			
+			}
+		},
+    label: function(){
+      return this.Voltage;
+    }
+	});
+</script>
+<script type="text/x-red" data-help-name="VoltGen">
+	<h3>Voltage Generator</h3>
+	<p>A constant voltage generator</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Voltage</td><td>The value that is sent to the output of this object (Default = 0.0)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Voltage Output</td></tr>
+	</table>
+	
+	<h4>Notes</h4>	
+	<p>This can also be thought of as a DC voltage generator.</p>
+	
+</script>
+<script type="text/x-red" data-template-name="VoltGen">
+	<div class="form-row">
+		<label for="node-input-Voltage"><i class="icon-tag"></i>Voltage</label>
+		<input type="text" id="node-input-Voltage">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('WhiteNse',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "wNseGen",						// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+    label: "wNseGen"
+	});
+</script>
+<script type="text/x-red" data-help-name="WhiteNse">
+	<h3>White Noise Generator</h3>
+	<p>A white noise generator with a uniform distribution</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Noise Output</td></tr>
+	</table>
+	
+	<h4>Notes</h4>	
+	<p>The range of the output is [-5V, 5V]</p>	
+	
+</script>
+<script type="text/x-red" data-template-name="WhiteNse">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('ZeroDelayFilt',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "zdf",					// this is the name that is displayed in the patch on the website
+		inputs:3,
+		outputs:3,
+		category: 'filters-function',
+		color:"#FFCC99",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+    label: function() {
+      return "Zero Delay Filter \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="ZeroDelayFilt">
+	<h3>Zero-Delay Filter</h3>
+	<p>A standard zero-delay filter with modulatable parameters.</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The cutoff frequency when 0 is applied to the cutoff frequency (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>	
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>v/Oct Cutoff Frequency</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Resonance (Q)</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Low-Pass Filtered Signal</td></tr>
+		<tr class=odd><td align=center>Out 2</td><td>Band-Pass Filtered Signal</td></tr>
+		<tr class=odd><td align=center>Out 3</td><td>High-Pass Filtered Signal</td></tr>
+	</table>
+		
+	<h4>Notes</h4>	
+	<p>The range of the cutoff frequency is [0, 20000]</p>
+	<p>The range of the resonance input is [0.5, 1000000.0]</p>
+	<p>All unconnected inputs default to 0</p>	
+	<p>The gain of the filter will decrease with an increased Q to prevent the resonance from clipping</p>
+	
+</script>
+<script type="text/x-red" data-template-name="ZeroDelayFilt">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('RemapLin',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "remap",					// this is the name that is displayed in the patch on the website
+		inputs:1,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+		defaults: {
+            InStart:  {value:"0"},
+            InEnd:    {value:"1"},
+            OutStart: {value:"0"},
+            OutEnd:   {value:"1"}
+        },	
+		propertyStrings: ['InStart', 'InEnd', 'OutStart', 'OutEnd'],	
+    //Modified version of oneditsave from VOct2Freq, shooting for something more generic.
+    oneditsave: function() {
+      //Keep a safe reference for calling inside subfunction(s) that might have a different "this".
+      var thisNode = this;
+      
+      this._def.propertyStrings.forEach(function(property){
+        var searchTerm = "node-input-" + property;
+        //console.log(searchTerm);
+        var x = document.getElementById(searchTerm);
+        var xValAsNum = parseFloat(x.value);
+        if (isNaN(xValAsNum)) {
+          x.value = thisNode[property];
+          window.alert("Value entered for " + property + " is not a number, so the previous value for this parameter will be restored");	
+        } else {
+			if (String(xValAsNum) != x.value)
+			{
+				// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+				// we don't want to show the alert in that case (for obvious reasons)
+				if (Number(x.value) != xValAsNum)
+				{
+					//console.log("changed value");
+					window.alert("Value entered for " + property + " contained non-numeric characters and will be parsed accordingly");	
+				}
+          }
+          x.value = String(xValAsNum);
+        }
+      });
+    },
+    label: function() {
+      var line1 = "Remap\n";
+      var line2 = "in: " + this.InStart + " to " + this.InEnd + "\n";
+      var line3 = "out: " + this.OutStart + " to " + this.OutEnd;
+      return line1 + line2 + line3;
+    }
+	});
+</script>
+<script type="text/x-red" data-help-name="RemapLin">
+	<h3>Remap Range</h3>
+	<p>Linearly remap an input range to a different output range</p>
+
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>InStart</td><td>The starting input value (Default = 0)</td></tr>
+    <tr class=odd><td align=center>InEnd</td><td>The ending input value (Default = 1)</td></tr>
+    <tr class=odd><td align=center>OutStart</td><td>The starting output value (Default = 0)</td></tr>
+    <tr class=odd><td align=center>OutEnd</td><td>The ending output value (Default = 1)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Input</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+  <p>Use this to scale from one range to another. Have an envelope going from 0 to 8 that you wish went from -5 to +5? This is for that.</p>
+  <p>It is happy to invert, as well.  For example, If InStart is greater than InEnd but OutStart is less than OutEnd, a decrease in the input will produce an increase in the output.</p>
+	
+</script>
+<script type="text/x-red" data-template-name="RemapLin">
+	<div class="form-row">
+		<label for="node-input-InStart"><i class="icon-tag"></i>InStart</label>
+		<input type="text" id="node-input-InStart">
+    <label for="node-input-InEnd"><i class="icon-tag"></i>InEnd</label>
+		<input type="text" id="node-input-InEnd">
+    <label for="node-input-OutStart"><i class="icon-tag"></i>OutStart</label>
+		<input type="text" id="node-input-OutStart">
+    <label for="node-input-OutEnd"><i class="icon-tag"></i>OutEnd</label>
+		<input type="text" id="node-input-OutEnd">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('VCA',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "vca",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'envelopes-function',
+		color:"#FF6666",
+		defaults: {
+            LevelInMax: {value:"8"},
+			isLin: {value:"1"},
+        },	
+		propertyStrings: ['LevelInMax', 'isLin'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-LevelInMax");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.LevelInMax;
+				window.alert("Value entered for LevelInMax is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+					//console.log("changed value");
+						window.alert("Value entered for LevelInMax contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				if (xValAsNum <=0)
+				{
+					x.value = this.LevelInMax;
+					window.alert("Value for LevelInMax must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}			
+			}
+			
+			var x = document.getElementById("node-input-isLin");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.isLin;
+				window.alert("Value entered for isLin is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for isLin contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				if ((xValAsNum != 1) && (xValAsNum != 0))
+				{
+					x.value = this.isLin;
+					window.alert("Value for isLin must be binary (either 1 or 0)");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}
+			}			
+		},
+        label: function() {
+		strOut = "(Log)"
+		if (parseFloat(this.isLin) == 1.0)
+		{
+			strOut = "(Lin)"
+		}
+      return "VCA " + strOut;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="VCA">
+	<h3>VCA</h3>
+	<p>A Voltage Controlled Amplifier</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>LevelInMax</td><td>Maximum value allowed at level input (default = 8.0).  This value must be positive and non-zero..</td></tr>
+		<tr class=odd><td align=center>isLin</td><td>Set to 1.0 for a linear application of the level and 0.0 for an exponential application of the level (Default = 1.0)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Input Signal</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Level (CV)</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>VCA Out</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p><=0V at the Level input will result in a muted output </p>
+	<p>A value of LevelInMax at the Level input will pass the Input signal through unattenuated</p>
+	<p>An example use of the LevelInMax property is to match the maximum output of an envelope (for example).</p>
+	<p>If both inputs are unconnected the output will be 0</p>
+	<p>If only the input signal (in 1) is connected, the output will be equal to the input signal</p>	
+	
+</script>
+<script type="text/x-red" data-template-name="VCA">
+	<div class="form-row">
+		<label for="node-input-LevelInMax"><i class="icon-tag"></i>Level In Max</label>
+		<input type="text" id="node-input-LevelInMax">
+		<label for="node-input-isLin"><i class="icon-tag"></i>isLin (bool)</label>
+		<input type="text" id="node-input-isLin">		
+	</div>
+</script>
+
+
+<script type="text/javascript">
+	RED.nodes.registerType('PulseGen',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "pulseGen",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("Value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+        label: function() {
+      return "Pulse Gen \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="PulseGen">
+	<h3>Pulse Gen</h3>
+	<p>A Pulse Train Generator</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The output frequency when 0 is applied to both inputs (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>V/Oct In </td></tr>
+		<tr class=odd><td align=center>In 2</td><td>FM (Linear Frequency) In</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Pulse Train Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>At the linear frequency input, a range of [-5V, 5V] maps to [-10kHz, 10kHz]</p>
+	<p>The maximum output frequency of this object is 20kHz</p>	
+	<p>Negative frequencies are not currently supported</p>	
+	<p>All unconnected inputs default to 0</p>	
+	<p>The range of the output is [0V, 5V]</p>
+	<p>The output is properly band limited in the supported frequency range</p>
+	
+</script>
+<script type="text/x-red" data-template-name="PulseGen">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('SawGen',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "sawOsc",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+        label: function() {
+      return "SawOsc \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="SawGen">
+	<h3>Saw Osc</h3>
+	<p>A Sawtooth Oscillator</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The output frequency when 0 is applied to both inputs (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>V/Oct In </td></tr>
+		<tr class=odd><td align=center>In 2</td><td>FM (Linear Frequency) In</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Saw Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>At the linear frequency input, a range of [-5V, 5V] maps to [-10kHz, 10kHz]</p>
+	<p>The maximum output frequency of this object is 20kHz</p>		
+	<p>Negative frequencies are not currently supported</p>
+	<p>All unconnected inputs default to 0</p>	
+	<p>The range of the output is [-5V, 5V]</p>
+	<p>The output is properly band limited in the supported frequency range</p>
+	
+</script>
+<script type="text/x-red" data-template-name="SawGen">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('TriGen',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "triOsc",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+        label: function() {
+      return "TriOsc \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="TriGen">
+	<h3>Triangle Osc</h3>
+	<p>A Triangle Oscillator</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The output frequency when 0 is applied to both inputs (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>V/Oct In </td></tr>
+		<tr class=odd><td align=center>In 2</td><td>FM (Linear Frequency) In</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Triangle Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>At the linear frequency input, a range of [-5V, 5V] maps to [-10kHz, 10kHz]</p>
+	<p>The maximum output frequency of this object is 20kHz</p>		
+	<p>Negative frequencies are not currently supported</p>
+	<p>All unconnected inputs default to 0</p>	
+	<p>The range of the output is [-5V, 5V]</p>
+	<p>The output is properly band limited in the supported frequency range</p>
+	
+</script>
+<script type="text/x-red" data-template-name="TriGen">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('Knob',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "knob",					// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:1,
+		category: 'input-function',
+		color:"#E6E0F8",
+		defaults: {
+            KnobNum:  {value:"1"},
+            RangeMin:    {value:"0.0"},
+            RangeMax: {value:"1.0"},
+        },	
+		propertyStrings: ['KnobNum', 'RangeMin', 'RangeMax'],	
+		oneditsave: function() {
+			
+		// knob number should be between 1 and 5 (inclusive) and should be an integer
+			var x = document.getElementById("node-input-KnobNum");
+			var xValAsNum = parseFloat(x.value);
+			if ((parseInt(xValAsNum) != x.value) || (xValAsNum > 5 ) || (xValAsNum < 1))
+			{
+				x.value = this.KnobNum;
+				window.alert("Value entered for Knob Number must be an integer in the range of [1,5]");				
+			}
+			else
+			{
+				x.value = String(xValAsNum);
+			}
+	
+			// range min and range max should be floats
+ 			var x = document.getElementById("node-input-RangeMin");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.RangeMin;
+				window.alert("Value entered for RangeMin is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for RangeMin contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			
+			}
+			
+			var x = document.getElementById("node-input-RangeMax");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.RangeMax;
+				window.alert("Value entered for RangeMax is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for RangeMax contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			}					
+    },
+    
+	label: function() {
+      return "Knob " + this.KnobNum + "\n [" + this.RangeMin + ", " + this.RangeMax + "]";
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="Knob">
+	<h3>Knob</h3>
+	<p>Receive input from a knob of your choice in a patch</p>
+
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+	<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Knob Number</td><td>The physical knob this object is associated with (Default = 1 and the range is [1,5])</td></tr>
+		<tr class=odd><td align=center>Range Minimum</td><td>The lowest value of the desired range of the knob (Default = 0.0)</td></tr>
+		<tr class=odd><td align=center>Range Maximum</td><td>The largest value of the desired range of the knob (Default = 1.0)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Scaled Knob Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+  <p>The same knob can be associated with multiple objects of this type (i.e. different ranges can be associated with a given knob).</p>
+  <p>Range min can be greater than range max if the knob is intended to increment in the negative direction</p>
+	
+</script>
+<script type="text/x-red" data-template-name="Knob">
+	<div class="form-row">
+		<label for="node-input-KnobNum"><i class="icon-tag"></i>Knob Number</label>
+		<input type="text" id="node-input-KnobNum">
+    <label for="node-input-RangeMin"><i class="icon-tag"></i>Range Minimum</label>
+		<input type="text" id="node-input-RangeMin">
+    <label for="node-input-RangeMax"><i class="icon-tag"></i>Range Maximum</label>
+		<input type="text" id="node-input-RangeMax">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('KnobAttenuator',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "attenKnob",					// this is the name that is displayed in the patch on the website
+		inputs:1,
+		outputs:1,
+		category: 'input-function',
+		color:"#E6E0F8",
+		defaults: {
+            KnobNum:  {value:"1"},
+            IsLin: {value:"1"},
+        },	
+		propertyStrings: ['KnobNum', 'IsLin'],	
+		oneditsave: function() {
+			
+		// knob number should be between 1 and 5 (inclusive) and should be an integer
+			var x = document.getElementById("node-input-KnobNum");
+			var xValAsNum = parseFloat(x.value);
+			if ((parseInt(xValAsNum) != x.value) || (xValAsNum > 5 ) || (xValAsNum < 1))
+			{
+				x.value = this.KnobNum;
+				window.alert("Value entered for Knob Number must be an integer in the range of [1,5]");				
+			}
+			else
+			{
+				x.value = String(xValAsNum);
+			}
+
+			var x = document.getElementById("node-input-IsLin");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.IsLin;
+				window.alert("Value entered for isLin is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for isLin contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				if ((xValAsNum != 1) && (xValAsNum != 0))
+				{
+					x.value = this.IsLin;
+					window.alert("Value must be binary (either 1 or 0)");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}
+			
+			}						
+    },
+    
+	label: function() {
+		strOut = "Log"
+		if (parseFloat(this.IsLin) == 1.0)
+		{
+			strOut = "Linear"
+		}
+      return strOut + " Attenuator" + "\n" + "(Knob " + this.KnobNum + ")";
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="KnobAttenuator">
+	<h3>Attenuation Knob</h3>
+	<p>Use a knob to attenuate a signal</p>
+
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+	<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Knob Number</td><td>The physical knob this object is associated with (Default = 1 and the range is [1,5])</td></tr>
+		<tr class=odd><td align=center>isLin</td><td>A binary value to determine the type of attenuation--set to 1.0 for a linear attenuation and 0.0 for an exponential attenuation (Default = 1.0)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal to be Attenuated</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Attenuated Input Signal</td></tr>
+	</table>
+	
+	<h4>Notes</h4>
+	<p>The same knob can be associated with multiple objects of this type (i.e. the same knob can attenuate multiple signals synchronously), if desired.</p>
+	<p>An unconnected input will produce an output of 0 regardless of the associated knob's value</p>
+	<p>If the associated knob's meter on the top of the module's screen is full, the output signal will not be attenuated at all.  If the meter is empty, the output signal will be muted</p>
+	
+</script>
+<script type="text/x-red" data-template-name="KnobAttenuator">
+	<div class="form-row">
+		<label for="node-input-KnobNum"><i class="icon-tag"></i>Knob Number</label>
+		<input type="text" id="node-input-KnobNum">
+		<label for="node-input-IsLin"><i class="icon-tag"></i>isLin (bool)</label>
+		<input type="text" id="node-input-IsLin">	
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('Mixer',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "mix4x1",					// this is the name that is displayed in the patch on the website
+		inputs:4,
+		outputs:1,
+		category: 'math-function',
+		color:"#99FFFF",
+		defaults: {
+            ScaleOutput:  {value:"0"},
+        },	
+		propertyStrings: ['ScaleOutput'],	
+		creationStrings: ['inputs'],
+		
+		oneditsave: function() {
+			
+			var x = document.getElementById("node-input-ScaleOutput");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.ScaleOutput;
+				window.alert("Value entered for ScaleOutput is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for ScaleOutput contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				if ((xValAsNum != 1) && (xValAsNum != 0))
+				{
+					x.value = this.ScaleOutput;
+					window.alert("Value must be binary (either 1 or 0)");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}
+			
+			}						
+    },
+    label: function() {
+      var line1 = "4x1 Mixer\n";
+      line2 = '(Unscaled)';
+	  if (this.ScaleOutput == 1)
+	  {
+		line2 = '(Scaled)';
+	  }
+
+      return line1 + line2;
+    }
+	});
+</script>
+<script type="text/x-red" data-help-name="Mixer">
+	<h3>4x1 Mixer</h3>
+	<p>Sum four signals into one</p>
+
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Scale Output</td><td>A binary value that determines whether or not the output of the mixer shall be scaled based on the number of connected inputs.  See the notes below for details.  (Default = unscaled)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Input 1</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Input 2</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Input 3</td></tr>
+		<tr class=odd><td align=center>In 4</td><td>Input 4</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Mix Out</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+  <p>Mix Out is a sum of all of the inputs, and if Scale Output is true, then the output will be scaled down appropriately based on the number of connected inputs.  This is provided to avoid the possibility of clipping during the mixing process, if that is a concern.  All processing is in floating point, so clipping should only be a concern if the output of the mixer is connected immediately to an output jack.  The Scale Output setting can also be used to preserve the input ranges at the output.  E.g. If four 5V sin waves are in-phase at the inputs then the Mix Out will be 20V if Scale Output is set to false (0). If it is set to true, then the output will be 5V.  </p>
+	
+</script>
+<script type="text/x-red" data-template-name="Mixer">
+	<div class="form-row">
+		<label for="node-input-ScaleOutput"><i class="icon-tag"></i>Scale Output (bool)</label>
+		<input type="text" id="node-input-ScaleOutput">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('TuneKnob',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "tuneKnob",					// this is the name that is displayed in the patch on the website
+		inputs:1,
+		outputs:1,
+		category: 'input-function',
+		color:"#E6E0F8",
+		defaults: {
+            KnobNum:  {value:"1"},
+            TuneAmtMin:    {value:"-1.0"},
+            TuneAmtMax: {value:"1.0"},
+        },	
+		propertyStrings: ['KnobNum', 'TuneAmtMin', 'TuneAmtMax'],	
+		oneditsave: function() {
+			
+		// knob number should be between 1 and 5 (inclusive) and should be an integer
+			var x = document.getElementById("node-input-KnobNum");
+			var xValAsNum = parseFloat(x.value);
+			if ((parseInt(xValAsNum) != x.value) || (xValAsNum > 5 ) || (xValAsNum < 1))
+			{
+				x.value = this.KnobNum;
+				window.alert("Value entered for Knob Number must be an integer in the range of [1,5]");				
+			}
+			else
+			{
+				x.value = String(xValAsNum);
+			}
+	
+			// range min and range max should be floats
+ 			var x = document.getElementById("node-input-TuneAmtMin");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.TuneAmtMin;
+				window.alert("Value entered for TuneAmtMin is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("Value entered for TuneAmtMin contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			
+			}
+			
+			var x = document.getElementById("node-input-TuneAmtMax");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.TuneAmtMax;
+				window.alert("Value entered for TuneAmtMax is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{					//console.log("changed value");
+						window.alert("Value entered for TuneAmtMax contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				
+				x.value = String(xValAsNum);
+			}					
+    },
+    
+	label: function() {
+      return "Tuner \nKnob " + this.KnobNum + "\n [" + this.TuneAmtMin + "V, " + this.TuneAmtMax + "V]";
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="TuneKnob">
+	<h3>Tuning Knob</h3>
+	<p>Use a knob to tune a signal</p>
+
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+	<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Knob Number</td><td>The physical knob this object is associated with (Default = 1 and the range is [1,5])</td></tr>
+		<tr class=odd><td align=center>Tune Range Minimum</td><td>Tuning offset (in Volts) when knob is at minimum  (Default = -1.0)</td></tr>
+		<tr class=odd><td align=center>Tune Range Maximum</td><td>Tuning offset (in Volts) when knob is at maximum (Default = 1.0)</td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>v/Oct Signal to be Tuned</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Tuned Signal</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+  <p>The tune amount is computed from the specified range and the value of the associated knob's meter on the top of the module's screen and then added linearly to the v/oct signal at In 1</p>
+  <p>The same knob can be associated with multiple objects of this type (i.e. the same knob can tune multiple signals synchronously), if desired.</p>
+  <p>Tune Range Minimum can be greater than Tune Range Maximum if the knob is intended to tune in the negative direction</p>
+  <p>The output when the input is unconnected will be equal to the knob value</p>
+	
+</script>
+<script type="text/x-red" data-template-name="TuneKnob">
+	<div class="form-row">
+		<label for="node-input-KnobNum"><i class="icon-tag"></i>Knob Number</label>
+		<input type="text" id="node-input-KnobNum">
+    <label for="node-input-TuneAmtMin"><i class="icon-tag"></i>Tune Range Minimum</label>
+		<input type="text" id="node-input-TuneAmtMin">
+    <label for="node-input-TuneAmtMax"><i class="icon-tag"></i>Tune Range Maximum</label>
+		<input type="text" id="node-input-TuneAmtMax">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('SquareGen',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "sqOsc",					// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'generators-function',
+		color:"#E0E0E0",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],			
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}					}
+		},
+        label: function() {
+      return "SqOsc \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="SquareGen">
+	<h3>Square Osc</h3>
+	<p>A Square Wave Oscillator</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The output frequency when 0 is applied to both inputs (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>V/Oct In </td></tr>
+		<tr class=odd><td align=center>In 2</td><td>FM (Linear Frequency) In</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Square Output</td></tr>
+	</table>
+		
+	<h4>Notes</h4>
+	<p>At the linear frequency input, a range of [-5V, 5V] maps to [-10kHz, 10kHz]</p>
+	<p>The maximum output frequency of this object is 20kHz</p>
+	<p>Negative frequencies are not currently supported</p>	
+	<p>All unconnected inputs default to 0</p>	
+	<p>The range of the output is [-5V, 5V]</p>
+	<p>The output is properly band limited in the supported frequency range</p>
+	
+</script>
+<script type="text/x-red" data-template-name="SquareGen">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('HermDelay',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "liteDelay",				// this is the name that is displayed in the patch on the website
+		inputs:2,
+		outputs:1,
+		category: 'delay-function',
+		color:"#ffccff",
+    label: "liteDelay"
+	});
+</script>
+<script type="text/x-red" data-help-name="HermDelay">
+	<h3>A Hermite-based Delay</h3>
+	<p>Delay a signal</p>
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>Delay Amount</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Delayed Signal</td></tr>
+	</table>
+
+	<h4>Notes</h4>
+	<p>[0, 5V] at the Delay Amount is mapped to [MinDelay, MaxDelay].  Negative voltages at this input are absolute valued.  </p>
+	<p>Currently, the maximum supported delay is 100ms and the minimum supported delay is 20us.</p>
+	<p>Currently, the delay amount input is low-pass filtered to prevent noisy signals from causing unintentional modulations which in turn would produce an unintentionally noisy output</p>
+	<p>All unconnected inputs default to 0</p>	
+
+	
+</script>
+<script type="text/x-red" data-template-name="HermDelay">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('FFCombHerm',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "ffComb",					// this is the name that is displayed in the patch on the website
+		inputs:3,
+		outputs:1,
+		category: 'filters-function',
+		color:"#FFCC99",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+    label: function() {
+      return "Feedforward Comb Filter \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="FFCombHerm">
+	<h3>A feedforward comb filter</h3>
+	<p>Comb filter a signal using a feedforward comb filtering structure</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The cutoff frequency when 0 is applied to the cutoff frequency (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>	
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>v/Oct In</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Feedforward Control</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Comb Filtered Signal</td></tr>
+
+	</table>
+		
+	<h4>Notes</h4>	
+	<p>The range of the filter's pitch in Hertz (which is computed from the Base Frequency and the v/Oct input) is [20, 20000], and in this object, due to the way comb filtering works, pitch corresponds to the spacing in between the filter's notches.</p>
+	<p>The range of the Feedfoward Control input is [-5, 5] where [-5, 0) corresponds to a negative feedforward coefficient, 0 corresponds to a pass-through case (input = output), and (0, +5] corresponds to positive feedforward coefficient.  In the case of a negative feedfoward coefficient, the lowest frequency notch will be at the requested pitch, and in the case of a positive feedforward coefficient, the lowest frequency notch will be at an octave below the requested pitch.  In both cases the spacing between the notches will be at the requested pitch.  Ultimately, the feedforward control affects the notch depth of the filter and the frequency of its first notch.  </p>
+	<p>All unconnected inputs default to 0.  </p>	
+	
+</script>
+<script type="text/x-red" data-template-name="FFCombHerm">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+<script type="text/javascript">
+	RED.nodes.registerType('FBCombHerm',{		// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "fbComb",					// this is the name that is displayed in the patch on the website
+		inputs:3,
+		outputs:1,
+		category: 'filters-function',
+		color:"#FFCC99",
+		defaults: {
+            BaseFreq: {value:"440"},
+        },	
+		propertyStrings: ['BaseFreq'],
+		oneditsave: function()
+		{
+			var x = document.getElementById("node-input-BaseFreq");
+			var xValAsNum = parseFloat(x.value);
+			if (isNaN(xValAsNum))
+			{
+				x.value = this.BaseFreq;
+				window.alert("value entered for Base Frequency is not a number, so the previous value for this parameter will be restored");	
+			}
+			else
+			{
+				if (String(xValAsNum) != x.value)
+				{
+					// extra conditional to catch the case when there's a .0 at the end of the user-entered value
+					// we don't want to show the alert in that case (for obvious reasons)
+					if (Number(x.value) != xValAsNum)
+					{
+						//console.log("changed value");
+						window.alert("value entered for Base Frequency contained non-numeric characters and will be parsed accordingly");	
+					}
+				}
+				if (xValAsNum <=0)
+				{
+					x.value = this.BaseFreq;
+					window.alert("Value for Base Frequency must be positive and non-zero");	
+				}
+				else
+				{
+					x.value = String(xValAsNum);
+				}		
+			}
+		},
+    label: function() {
+      return "Feedback Comb Filter \n @" + this.BaseFreq;
+    },
+	});
+</script>
+<script type="text/x-red" data-help-name="FBCombHerm">
+	<h3>A feedback comb filter</h3>
+	<p>Comb filter a signal using a feedback comb filtering structure</p>
+	
+	<h4>Object Properties</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Parameter</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>Base Frequency</td><td>The cutoff frequency when 0 is applied to the cutoff frequency (Default = 440Hz).  It is also the value upon which the v/Oct calculation is based.  This value must be positive and non-zero. </td></tr>
+	</table>	
+	
+	<h4>Audio/CV Connections</h4>
+	<table class=doc align=center cellpadding=3>
+		<tr class=top><th>Port</th><th>Purpose</th></tr>
+		<tr class=odd><td align=center>In 1</td><td>Signal</td></tr>
+		<tr class=odd><td align=center>In 2</td><td>v/Oct In</td></tr>
+		<tr class=odd><td align=center>In 3</td><td>Feedback Control</td></tr>
+		<tr class=odd><td align=center>Out 1</td><td>Comb Filtered Signal</td></tr>
+
+	</table>
+		
+	<h4>Notes</h4>	
+	<p>The range of the filter's pitch in Hertz (which is computed from the Base Frequency and the v/Oct input) is [20, 20000], and in this object, due to the way comb filtering works, pitch corresponds to the spacing in between the filter's  resonances.</p>
+	<p>The range of the Feedback Control input is [-5, 5] where [-5, 0) corresponds to a negative feedback coefficient, 0 corresponds to a pass-through case (input = output), and (0, +5] corresponds to positive feedback coefficient.  In the case of a negative feedback coefficient, the lowest frequency resonance will be at one octave below the requested pitch, and in the case of a positive feedback coefficient, the lowest frequency notch will be at the requested pitch.  In both cases the spacing between the resonances will be at the requested pitch.  Ultimately, the feedback control affects the intensity of the filter's resonances and the frequency of its first resonance.  </p>
+	<p>All unconnected inputs default to 0.  </p>	
+	
+</script>
+<script type="text/x-red" data-template-name="FBCombHerm">
+	<div class="form-row">
+		<label for="node-input-BaseFreq"><i class="icon-tag"></i>Base Frequency</label>
+		<input type="text" id="node-input-BaseFreq">
+	</div>
+</script>
+
+

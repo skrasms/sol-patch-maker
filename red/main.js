@@ -1,0 +1,757 @@
+/** Modified from original Node-Red source, for audio system visualization
+ * vim: set ts=4:
+ * Copyright 2013 IBM Corp.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ **/
+var RED = (function() {
+
+	$('#btn-keyboard-shortcuts').click(function(){showHelp();});
+
+	function hideDropTarget() {
+		$("#dropTarget").hide();
+		RED.keyboard.remove(/* ESCAPE */ 27);
+	}
+
+	$('#chart').on("dragenter",function(event) {
+		if ($.inArray("text/plain",event.originalEvent.dataTransfer.types) != -1) {
+			$("#dropTarget").css({display:'table'});
+			RED.keyboard.add(/* ESCAPE */ 27,hideDropTarget);
+		}
+	});
+
+	$('#dropTarget').on("dragover",function(event) {
+		if ($.inArray("text/plain",event.originalEvent.dataTransfer.types) != -1) {
+			event.preventDefault();
+		}
+	})
+	.on("dragleave",function(event) {
+		hideDropTarget();
+	})
+	.on("drop",function(event) {
+		var data = event.originalEvent.dataTransfer.getData("text/plain");
+		hideDropTarget();
+		RED.view.importNodes(data);
+		event.preventDefault();
+	});
+    
+    //When editing the file name, we need a handler to prevent the delete key
+    //from propagating to the GUI and causing any active selections to be deleted.
+    //Note that "keypress" does not work for delete. Keydown does.
+    $('#solPatchName').keydown(function(event) {
+        event.stopPropagation();
+    })
+
+	function save(force) {
+		RED.storage.update();
+
+		if (1) {
+			var nns = RED.nodes.createCompleteNodeSet();
+			console.log("node set")
+			console.log(nns)
+			
+			
+			
+			var scheduledBlocks = GetScheduledBlocks(nns);
+            //Length check (so that we don't write a file with no data)
+            if(scheduledBlocks.length===0){return;}
+			console.log("Scheduled Array:")
+			PrintBlockIds(scheduledBlocks, "-->")
+			
+			
+			//	lets just try this...
+			nns = scheduledBlocks;
+			
+			// sort by horizontal position, plus slight vertical position,
+			// for well defined update order that follows signal flow
+			//nns.sort(function(a,b){ return (a.x + a.y/250) - (b.x + b.y/250); });
+			//console.log("sorted node set")
+			//console.log(nns)
+			
+			//console.log(JSON.stringify(nns));
+
+			var cpp = "SOLPATCH_START\n\n"
+			cpp += "## Create synth objects and set their parameters\n" ;
+			// generate code for all audio processing nodes--creation and 
+			// settable parameters
+			for (var i=0; i<nns.length; i++) {
+				var n = nns[i];
+				var node = RED.nodes.node(n.id);
+				if (node && (node.outputs > 0 || node._def.inputs > 0)) {
+					cpp += "new " + n.type + " ";
+					//for (var j=n.type.length; j<24; j++) cpp += " ";
+					cpp += n.id;
+					
+					// we are currently only set up for integer values in the creation string parameters
+					// and floating point values in the property string values.  the latter is ok, because
+					// we can pass ints as floats and then just convert on the DSP, but the former could 
+					// eventually be limiting.  We'll deal with that when/if it comes up. 
+					if (node._def.hasOwnProperty('creationStrings'))
+					{
+						for(var propIdx in node._def.creationStrings)
+						{
+							foundProp = false;
+						
+							//console.log(node._def.creationStrings[propIdx])
+							val = parseInt(node[node._def.creationStrings[propIdx]]);
+							
+							// if we make it here, it's either because the property we're looking
+							// for doesn't exist in this object or it is under _def, so we'll
+							// check there first.  
+							if (isNaN(val))
+							{
+								val = parseInt(node._def[node._def.creationStrings[propIdx]]);
+								if (isNaN(val))
+								{
+									foundProp = false;
+									cpp += "###Property parsing ERROR\n";
+								}
+								else
+								{
+									foundProp = true;
+								}
+							}
+							else
+							{
+								foundProp = true;
+							}
+							
+							if (foundProp == true)
+							{
+								cpp += " " + val +" ";
+							}				
+						}	
+					}
+					
+					cpp += " \n";
+					
+					//for (var j=n.id.length; j<14; j++) cpp += " ";
+					//cpp += "#xy=" + n.x + "," + n.y + "\n";
+				
+					//console.log("property strings")
+					if (node._def.hasOwnProperty('propertyStrings'))
+					{
+						//console.log(node._def.propertyStrings)
+						for(var propIdx in node._def.propertyStrings)
+						{
+							foundProp = false;
+						
+							//console.log(node._def.propertyStrings[propIdx])
+							val = parseFloat(node[node._def.propertyStrings[propIdx]]);
+							
+							// if we make it here, it's either because the property we're looking
+							// for doesn't exist in this object or it is under _def, so we'll
+							// check there first.  
+							if (isNaN(val))
+							{
+								val = parseFloat(node._def[node._def.propertyStrings[propIdx]]);
+								if (isNaN(val))
+								{
+									foundProp = false;
+									cpp += "###Property parsing ERROR\n";
+								}
+								else
+								{
+									foundProp = true;
+								}
+							}
+							else
+							{
+								foundProp = true;
+							}
+							
+							if (foundProp == true)
+							{
+								val = Math.max(val, -9999999.9999999);
+								val = Math.min(val, 9999999.9999999);
+								val = val.toFixed(7); // this has to be after the min/max
+								cpp += "set " + n.id + " " + node._def.propertyStrings[propIdx] + " " + val + " \n";
+							}
+							//console.log(parseFloat(val))
+							//
+							
+							
+						}	
+					}
+				}
+			}
+			
+			// generate code for 
+			//console.log(node)
+			//console.log(node.propertyStrings)
+			//console.log(node.propertyStrings.length)
+			//for(var i=0; i<node.propertyStrings.length; i++)
+			//{
+			//	val = node[node.propertyStrings[i]];
+			//	val = val.toPrecision(14);
+			//	cpp += "set " + n.id + " " + node.propertyStrings[i] + " " + String(val)" \n";
+			//}			
+			
+			// generate code for all connections (aka wires or links)
+			cpp += "\n## Connect synth objects\n"
+			var cordcount = 1;
+			for (var i=0; i<nns.length; i++) {
+				var n = nns[i];
+				if (n.wires) {
+					for (var j=0; j<n.wires.length; j++) {
+						var wires = n.wires[j];
+						if (!wires) continue;
+						for (var k=0; k<wires.length; k++) {
+							var wire = n.wires[j][k];
+							if (wire) {
+								var parts = wire.split(":");
+								if (parts.length == 2) {
+									cpp += "connect ";
+									var src = RED.nodes.node(n.id);
+									var dst = RED.nodes.node(parts[0]);
+									//if (j == 0 && parts[1] == 0 && src && src.outputs == 1 && dst && dst._def.inputs == 1) {
+									//	cpp += n.id + " " + parts[0];
+									//} else {
+										cpp += n.id + " " + j + " " + parts[0] + " " + parts[1];
+									//}
+									cpp += "\n";
+									cordcount++;
+								}
+							}
+						}
+					}
+				}
+			}
+			// generate code for all control nodes (no inputs or outputs)
+			for (var i=0; i<nns.length; i++) {
+				var n = nns[i];
+				var node = RED.nodes.node(n.id);
+				if (node && node.outputs == 0 && node._def.inputs == 0) {
+					cpp += n.type + " ";
+					for (var j=n.type.length; j<24; j++) cpp += " ";
+					cpp += n.id + "; ";
+					for (var j=n.id.length; j<14; j++) cpp += " ";
+					cpp += "//xy=" + n.x + "," + n.y + "\n";
+				}
+			}
+			cpp += "\nSOLPATCH_END\n";
+			//console.log(cpp);
+            
+            //Find the export file name text box. If it's empty, use "untitled"
+            var userFileName = $("#solPatchName").val() || "untitled";
+            //Limit to 8 characters and add .sol extension
+            //TODO: possibly check file name for invalid characters like quotation marks; however,
+            //browsers appear to handle it (Chrome replaces invalid characters with '-').
+            var solPatchFileName = userFileName.substring(0, 8).concat(".sol");
+            
+            //Create footer for file that is the JSON representation of all NODE information
+            // var setOfAllNodes = RED.nodes.createCompleteNodeSet();
+            // var stringOfAllJSON = JSON.stringify(RED.nodes.createExportableNodeSet(setOfAllNodes));            
+            var stringOfAllJSON = JSON.stringify(RED.nodes.createCompleteNodeSet())
+            console.log(stringOfAllJSON);
+            
+            var cppBlob = new Blob([cpp, stringOfAllJSON], {type: "text/plain;charset=utf-8"});
+            saveAs(cppBlob, solPatchFileName);
+            
+			// RED.view.state(RED.state.EXPORT);
+			// $("#dialog-form").html($("script[data-template-name='export-clipboard-dialog']").html());
+			// $("#node-input-export").val(cpp);
+			// $("#node-input-export").focus(function() {
+				// var textarea = $(this);
+				// textarea.select();
+				// textarea.mouseup(function() {
+					// textarea.unbind("mouseup");
+					// return false;
+				// });
+			// });
+			// $( "#dialog" ).dialog("option","title","SOL Patch Syntax").dialog( "open" );
+			// $("#node-input-export").focus();
+            
+            
+			//RED.view.dirty(false);
+            
+
+		}
+	}
+
+	$('#btn-deploy').click(function() { save(); });
+    
+    $('#btn-sol-clear').click(function() {
+        RED.storage.write("");
+        location.reload();
+    });
+    
+    //*********** Import UI Handling ****************************
+    //Must include "dragover" and "dragleave" functions to prevent the browser's default
+    //behavior of not passing drag information to objects. Note that I'm using jquery syntax
+    //to maintain consistency with the rest of this file.
+    $('#btn-sol-import').on("dragover", function(event) {
+        event.preventDefault();  
+        event.stopPropagation();
+        $(this).addClass('dragging');
+    });
+    
+    $('#btn-sol-import').on("dragleave", function(event) {
+        event.preventDefault();  
+        event.stopPropagation();
+        $(this).removeClass('dragging');
+    });
+    
+    //This is what runs when the mouse button is released
+    $('#btn-sol-import').on("drop", function(event) {
+        event.preventDefault();  
+        event.stopPropagation();
+        console.log("Hi there, world");
+        //"event" in this case is NOT the standard HTML event; it is a jquery object
+        //that wraps up the standard HTML event (as "originalEvent") along with a
+        //bunch of other stuff.
+        var fileData = event.originalEvent.dataTransfer.files[0];
+        console.log(fileData);
+        var reader = new FileReader();
+        reader.onload = function(){
+            console.log("Loaded file!");
+            console.log(reader.result);
+            //Find the end of the data for the SHARC, and interpret the rest as JSON.
+            var endOfSolString = "SOLPATCH_END\n";
+            var endOfSOL = reader.result.indexOf(endOfSolString) + endOfSolString.length;
+            var jsonData = reader.result.slice(endOfSOL);
+            
+            //localStorage method: write to local storage, then refresh the website
+            //to force a load from localStorage
+            RED.storage.write(jsonData);
+            location.reload();
+            
+            //Paste method
+            // RED.view.importNodes(jsonData);
+            
+            //Import method - clear all nodes and start fresh from file data
+            // RED.nodes.clear();
+            // RED.nodes.import(jsonData, false); //false = do not create new IDs
+            
+            //If we're starting with a blank slate and importing, it works fine.
+            //Otherwise, the graphics data loses sync with the node data. Here are 
+            //some experiments to attempt to fix that. None have worked.
+            
+            // //RED.view.dirty(true);
+            // //RED.history.markAllDirty();
+            
+            // RED.nodes.eachNode(function(n){
+                // // n.dirty = true;
+                // // n.changed = true;
+                // // n.resize = true;
+                // //RED.editor.updateNodeProperties(n);
+            // });
+            
+            // RED.view.redraw();
+        };
+        reader.readAsText(fileData);
+    });
+    //*********** End of Import UI Handling **********************
+
+
+	$( "#node-dialog-confirm-deploy" ).dialog({
+			title: "Confirm deploy",
+			modal: true,
+			autoOpen: false,
+			width: 530,
+			height: 230,
+			buttons: [
+				{
+					text: "Confirm deploy",
+					click: function() {
+						save(true);
+						$( this ).dialog( "close" );
+					}
+				},
+				{
+					text: "Cancel",
+					click: function() {
+						$( this ).dialog( "close" );
+					}
+				}
+			]
+	});
+
+	// from http://css-tricks.com/snippets/javascript/get-url-variables/
+	function getQueryVariable(variable) {
+		var query = window.location.search.substring(1);
+		var vars = query.split("&");
+		for (var i=0;i<vars.length;i++) {
+			var pair = vars[i].split("=");
+			if(pair[0] == variable){return pair[1];}
+		}
+		return(false);
+	}
+
+	function loadNodes() {
+		$.get('list.html', function(data) {
+			$("body").append(data);
+			$(".palette-spinner").hide();
+			$(".palette-scroll").show();
+			$("#palette-search").show();
+			RED.storage.load();
+			RED.view.redraw();
+			setTimeout(function() {
+				$("#btn-deploy").removeClass("disabled").addClass("btn-danger");
+			}, 1500);
+			//$('#btn-deploy').click(function() { save(); });
+			// if the query string has ?info=className, populate info tab
+			var info = getQueryVariable("info");
+			if (info) {
+				$("#tab-info").html('<div class="node-help">'
+					+($("script[data-help-name|='"+info+"']").html()||"")+"</div>");
+			}
+		}, "html");
+	}
+
+	$('#btn-node-status').click(function() {toggleStatus();});
+
+	var statusEnabled = false;
+	function toggleStatus() {
+		var btnStatus = $("#btn-node-status");
+		statusEnabled = btnStatus.toggleClass("active").hasClass("active");
+		RED.view.status(statusEnabled);
+	}
+	
+	function showHelp() {
+
+		var dialog = $('#node-help');
+
+		//$("#node-help").draggable({
+		//        handle: ".modal-header"
+		//});
+
+		dialog.on('show',function() {
+			RED.keyboard.disable();
+		});
+		dialog.on('hidden',function() {
+			RED.keyboard.enable();
+		});
+
+		dialog.modal();
+	}
+	
+	
+	function GetScheduledBlocks(arrayOfBlocks)
+	{
+		var scheduledBlockArray = [];
+		
+		//	get the output block 
+		var outputBlock = FindOutputBlock(arrayOfBlocks);
+		
+		//	TODO: check if outputBlock is undefined and then error 
+		if (typeof outputBlock === "undefined")
+		{
+			return scheduledBlockArray;
+		}
+		
+		
+		//	get all the blocks that feed the output block
+		//	(returns an array)
+		var outputBlockSources = GetUniqueSources(outputBlock, arrayOfBlocks);
+		
+		//	we actually need each source to be within an array, so construct that
+		var dependencyChains = [];
+		for (var blockIdx = 0; blockIdx<outputBlockSources.length; blockIdx++)
+		{
+			var chain = [outputBlockSources[blockIdx]];
+			dependencyChains.push(chain);
+		}
+		
+		//	now, extend the dependencyChains
+		var dependencyChains = ExtendDependencyChains(dependencyChains,arrayOfBlocks);
+		
+		//	and get the single scheduled array 
+		scheduledBlockArray = ConstructScheduledArrayFromDependencyChains(dependencyChains);
+		
+		//	finally, get any terminators and schedule those 
+		var terminators = FindAllTerminators(arrayOfBlocks);
+		for (var termIdx = 0; termIdx<terminators.length; termIdx++)
+		{
+			var termBlock = terminators[termIdx];
+			 
+			if (IsBlockInArrayOfBlocks(termBlock, scheduledBlockArray) == 0)
+			{
+				scheduledBlockArray.push(termBlock);
+			}	
+		}
+		
+		return scheduledBlockArray;
+	}
+	
+	function ExtendDependencyChains(arrayOfChains, allLayoutBlocks)
+	{
+		var bAnyNew = 0;
+		var newArrayOfChains = [];
+		
+		for (var chainIdx = 0; chainIdx < arrayOfChains.length; chainIdx++)
+		{
+			var chain = arrayOfChains[chainIdx];
+			var bChainHandled = 0;
+			//	get all of the blocks which feed the last element in the chain 
+			var sources = GetUniqueSources(chain[chain.length-1],  allLayoutBlocks);
+			
+			if (sources.length == 0)
+			{
+				newArrayOfChains.push(chain);	//	this chain is complete
+				bChainHandled = 1;
+			}
+			else
+			{
+				for (var sourceIdx = 0; sourceIdx<sources.length; sourceIdx++)
+				{
+					var sourceBlock = sources[sourceIdx];
+					 
+					//	if the source we found is not already in this dependency chain 
+					//	copy the chain and add the source to it, and add it to the collection 
+					if (IsBlockInArrayOfBlocks(sourceBlock, chain) == 0)
+					{
+						var chainCopy = chain.slice(0);
+						chainCopy.push(sourceBlock);
+						newArrayOfChains.push(chainCopy);
+						bAnyNew = 1;
+						bChainHandled = 1;
+					}
+				}
+			}
+
+			if (bChainHandled ==0)
+			{
+				newArrayOfChains.push(chain);
+			}
+		}
+		
+		if (bAnyNew == 0)
+		{
+			return newArrayOfChains;
+		}
+		else
+		{
+			return ExtendDependencyChains(newArrayOfChains, allLayoutBlocks);
+		}	
+	}
+	
+	
+	//	given block and arrayOfPossibleBlocks
+	//	 this function returns an array of all the blocks which feed the provided targetBlock 
+	function GetUniqueSources(targetBlock, arrayOfPossibleBlocks)
+	{
+		var uniqueSources = [];
+		
+		for (var blockIdx = 0; blockIdx<arrayOfPossibleBlocks.length; blockIdx++)
+		{
+			//	grab a block from the whole collection 
+			var potentialSource = arrayOfPossibleBlocks[blockIdx];
+			
+			//	get all of the blocks the potentialSource feeds 
+			var potentialSourceTargets = GetBlockTargets(potentialSource, arrayOfPossibleBlocks);
+			
+			//	check if our target is in this array 
+			if (IsBlockInArrayOfBlocks(targetBlock, potentialSourceTargets)==1)
+			{
+				//	OK great it is.  
+				//	now add it to the uniqueSources array, as long as it isn't already there
+				if (IsBlockInArrayOfBlocks(potentialSource, uniqueSources)==0)
+				{
+					uniqueSources.push(potentialSource);
+				}
+			}
+		}
+		
+		return uniqueSources;
+	}
+	
+	//	returns 1 if block is in arrayOfBlocks
+	//	returns 0 if block is not in arrayOfBlocks 
+	function IsBlockInArrayOfBlocks(block, arrayOfBlocks)
+	{
+		var inArray = 0;
+		for (var blockIdx = 0; blockIdx < arrayOfBlocks.length; blockIdx++)
+		{
+			if (arrayOfBlocks[blockIdx].id == block.id)
+			{
+				inArray = 1;
+			}
+		}
+		
+		return inArray;
+	}
+	
+	
+	
+	function GetBlockTargets(singleBlock, arrayOfPotentialTargets)
+	{
+		var targetBlocks = [];		
+		for (var wireCollectionIdx=0; wireCollectionIdx<singleBlock.wires.length; wireCollectionIdx++) 
+		{
+			//	get the array of wire connections from the output port Idx 
+			var wireConnections =singleBlock.wires[wireCollectionIdx];
+			
+			// loop over each connection from this output port
+			for (var wireConnectionIdx = 0; wireConnectionIdx<wireConnections.length; wireConnectionIdx++)
+			{
+				//	get the connection
+				//	the connection appears to be a string that looks like this:
+				//	<targetBlockId>:<targetBlockInputPortIdx>
+				var wireConnection = wireConnections[wireConnectionIdx];
+				
+				//	we need to get the targetBlockId
+				var targetBlockId = wireConnection.split(":")[0];
+				
+				//	so we are going to get the full on "node"
+				//	because i've seen this snippet below 
+				//var node = RED.nodes.node(targetBlockId);
+				
+				
+				//	get the block from the targetBlockId
+				//	(note: this block must have a .wires property, thats why we can't use the RED.nodes.node array becasue those dont)
+				var targetBlock;
+				for (var blockIdx = 0; blockIdx < arrayOfPotentialTargets.length; blockIdx++)
+				{
+					if (arrayOfPotentialTargets[blockIdx].id == targetBlockId)
+					{
+						targetBlock = arrayOfPotentialTargets[blockIdx];
+						break;
+					}
+				}
+				
+				//	and if the block isn't already in our array, add it 
+				if (IsBlockInArrayOfBlocks(targetBlock, targetBlocks)==0)
+				{
+					targetBlocks.push(targetBlock);
+				}
+			}
+		}
+		
+		return targetBlocks; 
+	}
+
+	
+	
+	//	Given an arrayOfBlocks, this function returns all "terminators"
+	//	- blocks which take an input but have no outputs   
+	function FindAllTerminators(arrayOfBlocks)
+	{
+		var terminatorBlocks = [];
+		
+		for (var blockIdx = 0; blockIdx<arrayOfBlocks.length; blockIdx++)
+		{
+			var theBlock = arrayOfBlocks[blockIdx];
+			var node = RED.nodes.node(theBlock.id);
+			
+			//	check if block has inputs 
+			if (node.inputlist.length>0) // is .inputs what I want???
+			{
+				//	make sure the block has no outputs  
+				if (node.outputs==0)
+				{
+					//	and if the block isn't already in our array, add it 
+					if (IsBlockInArrayOfBlocks(theBlock, terminatorBlocks)==0)
+					{
+						terminatorBlocks.push(theBlock);
+					}
+				}
+			}
+		}
+		
+		return terminatorBlocks; 
+		
+	}
+	
+	
+	function FindOutputBlock(arrayOfBlocks)
+	{
+		var numOutputBlocksFound = 0;
+		
+		var outputBlock;
+		for (var i=0; i<arrayOfBlocks.length; i++) 
+		{
+			//	TODO: error if more than one is found or none found 
+			
+			var n = arrayOfBlocks[i];
+			if (n.type == "OutputJacks")
+			{
+				outputBlock = n; 
+				numOutputBlocksFound +=1;
+			}
+		}
+		
+		if (numOutputBlocksFound >1)
+		{
+			window.alert("Too many output blocks in layout! don't trust this output")
+		}
+		
+		if (numOutputBlocksFound ==0)
+		{
+			window.alert("No output blocks found.  Error ")
+		}
+		
+		return outputBlock;
+	}
+	
+	function ConstructScheduledArrayFromDependencyChains(dependencyChainsArray)
+	{
+		//	find the longest chain length 
+		var longestLength = 0;
+		for (var dcIdx = 0; dcIdx < dependencyChainsArray.length; dcIdx++)
+		{
+			longestLength = Math.max(longestLength, dependencyChainsArray[dcIdx].length)
+		}
+		
+		var scheduledBlocks = [];
+		
+		for (var blockIdx = longestLength-1; blockIdx >=0; blockIdx --)
+		{
+			for (var dcIdx = 0; dcIdx < dependencyChainsArray.length; dcIdx++)
+			{
+				var chain = dependencyChainsArray[dcIdx];
+				
+				try
+				{
+					var block = chain[blockIdx];
+					
+					if (typeof block === "undefined")
+					{
+						continue;
+					}
+					if (IsBlockInArrayOfBlocks(block, scheduledBlocks)==0)
+					{
+						scheduledBlocks.push(chain[blockIdx]);
+					}
+				}
+				catch(err)
+				{
+					//	don't care
+				}
+			}
+		}
+
+		return scheduledBlocks;
+		
+	}
+	
+	
+	function PrintBlockIds(arrayOfBlocks, stringPrePend)
+	{
+		for (var blockIdx = 0; blockIdx < arrayOfBlocks.length; blockIdx++)
+		{
+			console.log(stringPrePend + arrayOfBlocks[blockIdx].id);
+		}
+	}
+	
+	
+	
+
+	$(function() {
+		RED.keyboard.add(/* ? */ 191,{shift:true},function(){showHelp();d3.event.preventDefault();});
+		loadNodes();
+	});
+
+	return {
+	};
+})();
