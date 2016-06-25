@@ -43,6 +43,93 @@
 	</div>
 </script>
 
+<script type="text/javascript">
+	RED.nodes.registerType('Labels',{	// this is the name of the SOL object in the module code (it must match the module code exactly)
+	shortName: "labels",					// this is the name that is displayed in the patch on the website
+		inputs:0,
+		outputs:0,
+		category: 'input-function',
+		color:"#E6E0F8",
+    defaults: {
+            Knob1: {value:"Knob1"},
+            Knob2: {value:"Knob2"},
+            Knob3: {value:"Knob3"},
+            Knob4: {value:"Knob4"},
+            Knob5: {value:"Knob5"},
+            InJack1: {value:"InJack1"},
+            InJack2: {value:"InJack2"},
+            InJack3: {value:"InJack3"},
+            InJack4: {value:"InJack4"},
+            InJack5: {value:"InJack5"},
+            InJack6: {value:"InJack6"},
+            InJack7: {value:"InJack7"},
+            InJack8: {value:"InJack8"},
+            OutJackA: {value:"OutJackA"},
+            OutJackB: {value:"OutJackB"},
+            OutJackC: {value:"OutJackC"},
+            OutJackD: {value:"OutJackD"},
+            OutJackE: {value:"OutJackE"},
+            OutJackF: {value:"OutJackF"},
+    },	
+		propertyStrings: [
+      'Knob1', 'Knob2', 'Knob3', 'Knob4', 'Knob5',
+      'InJack1', 'InJack2', 'InJack3', 'InJack4', 'InJack5', 'InJack6', 'InJack7', 'InJack8',
+      'OutJackA', 'OutJackB', 'OutJackC', 'OutJackD', 'OutJackE', 'OutJackF'
+    ],
+    label: "Labels"
+	});
+</script>
+<script type="text/x-red" data-help-name="Labels">
+	<h3>Control Labels</h3>
+	<p>Give custom names to input jacks, output jacks, and knobs.</p>
+	
+</script>
+<script type="text/x-red" data-template-name="Labels">
+	<div class="form-row">
+		<!-- <label for="node-input-name"><i class="fa fa-tag"></i> Name</label> -->
+		<!-- <input type="text" id="node-input-name" placeholder="Name"> -->
+    <label for="node-input-Knob1"><i class="fa fa-tag"></i> Knob 1</label>
+    <input type="text" id="node-input-Knob1" placeholder="Knob 1">
+    <label for="node-input-Knob2"><i class="fa fa-tag"></i> Knob 2</label>
+    <input type="text" id="node-input-Knob2" placeholder="Knob 2">
+    <label for="node-input-Knob3"><i class="fa fa-tag"></i> Knob 3</label>
+    <input type="text" id="node-input-Knob3" placeholder="Knob 3">
+    <label for="node-input-Knob4"><i class="fa fa-tag"></i> Knob 4</label>
+    <input type="text" id="node-input-Knob4" placeholder="Knob 4">
+    <label for="node-input-Knob5"><i class="fa fa-tag"></i> Knob 5</label>
+    <input type="text" id="node-input-Knob5" placeholder="Knob 5">
+    
+    <label for="node-input-InJack1"><i class="fa fa-tag"></i> Input 1</label>
+    <input type="text" id="node-input-InJack1" placeholder="InJack1">
+    <label for="node-input-InJack2"><i class="fa fa-tag"></i> Input 2</label>
+    <input type="text" id="node-input-InJack2" placeholder="InJack2">
+    <label for="node-input-InJack3"><i class="fa fa-tag"></i> Input 3</label>
+    <input type="text" id="node-input-InJack3" placeholder="InJack3">
+    <label for="node-input-InJack4"><i class="fa fa-tag"></i> Input 4</label>
+    <input type="text" id="node-input-InJack4" placeholder="InJack4">
+    <label for="node-input-InJack5"><i class="fa fa-tag"></i> Input 5</label>
+    <input type="text" id="node-input-InJack5" placeholder="InJack5">
+    <label for="node-input-InJack6"><i class="fa fa-tag"></i> Input 6</label>
+    <input type="text" id="node-input-InJack6" placeholder="InJack6">
+    <label for="node-input-InJack7"><i class="fa fa-tag"></i> Input 7</label>
+    <input type="text" id="node-input-InJack7" placeholder="InJack7">
+    <label for="node-input-InJack8"><i class="fa fa-tag"></i> Input 8</label>
+    <input type="text" id="node-input-InJack8" placeholder="InJack8">
+    
+    <label for="node-input-OutJackA"><i class="fa fa-tag"></i> Output A</label>
+    <input type="text" id="node-input-OutJackA" placeholder="OutJackA">
+    <label for="node-input-OutJackB"><i class="fa fa-tag"></i> Output B</label>
+    <input type="text" id="node-input-OutJackB" placeholder="OutJackB">
+    <label for="node-input-OutJackC"><i class="fa fa-tag"></i> Output C</label>
+    <input type="text" id="node-input-OutJackC" placeholder="OutJackC">
+    <label for="node-input-OutJackD"><i class="fa fa-tag"></i> Output D</label>
+    <input type="text" id="node-input-OutJackD" placeholder="OutJackD">
+    <label for="node-input-OutJackE"><i class="fa fa-tag"></i> Output E</label>
+    <input type="text" id="node-input-OutJackE" placeholder="OutJackE">
+    <label for="node-input-OutJackF"><i class="fa fa-tag"></i> Output F</label>
+    <input type="text" id="node-input-OutJackF" placeholder="OutJackF">
+	</div>
+</script>
 
 <!--We don't need the knobs object anymore due to the three single knob objects we have, but we'll keep the code around in case we decide to add it back in in the future. -->
 <!--  

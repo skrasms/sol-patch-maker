@@ -57,20 +57,12 @@ var RED = (function() {
 
 		if (1) {
 			var nns = RED.nodes.createCompleteNodeSet();
-			console.log("node set")
-			console.log(nns)
-			
-			
-			
+            
 			var scheduledBlocks = GetScheduledBlocks(nns);
             //Length check (so that we don't write a file with no data)
             if(scheduledBlocks.length===0){return;}
 			console.log("Scheduled Array:")
 			PrintBlockIds(scheduledBlocks, "-->")
-			
-			
-			//	lets just try this...
-			nns = scheduledBlocks;
 			
 			// sort by horizontal position, plus slight vertical position,
 			// for well defined update order that follows signal flow
@@ -84,8 +76,8 @@ var RED = (function() {
 			cpp += "## Create synth objects and set their parameters\n" ;
 			// generate code for all audio processing nodes--creation and 
 			// settable parameters
-			for (var i=0; i<nns.length; i++) {
-				var n = nns[i];
+			for (var i=0; i<scheduledBlocks.length; i++) {
+				var n = scheduledBlocks[i];
 				var node = RED.nodes.node(n.id);
 				if (node && (node.outputs > 0 || node._def.inputs > 0)) {
 					cpp += "new " + n.type + " ";
@@ -200,8 +192,8 @@ var RED = (function() {
 			// generate code for all connections (aka wires or links)
 			cpp += "\n## Connect synth objects\n"
 			var cordcount = 1;
-			for (var i=0; i<nns.length; i++) {
-				var n = nns[i];
+			for (var i=0; i<scheduledBlocks.length; i++) {
+				var n = scheduledBlocks[i];
 				if (n.wires) {
 					for (var j=0; j<n.wires.length; j++) {
 						var wires = n.wires[j];
@@ -231,13 +223,29 @@ var RED = (function() {
 			for (var i=0; i<nns.length; i++) {
 				var n = nns[i];
 				var node = RED.nodes.node(n.id);
-				if (node && node.outputs == 0 && node._def.inputs == 0) {
-					cpp += n.type + " ";
-					for (var j=n.type.length; j<24; j++) cpp += " ";
-					cpp += n.id + "; ";
-					for (var j=n.id.length; j<14; j++) cpp += " ";
-					cpp += "//xy=" + n.x + "," + n.y + "\n";
-				}
+                if(n.type=="Labels"){
+                    cpp += "configTBDSP knob 0 name " + node.Knob1 + "\n";
+                    cpp += "configTBDSP knob 1 name " + node.Knob2 + "\n";
+                    cpp += "configTBDSP knob 2 name " + node.Knob3 + "\n";
+                    cpp += "configTBDSP knob 3 name " + node.Knob4 + "\n";
+                    cpp += "configTBDSP knob 4 name " + node.Knob5 + "\n";
+                    
+                    cpp += "configTBDSP jack input 0 name " + node.InJack1 + "\n";
+                    cpp += "configTBDSP jack input 1 name " + node.InJack2 + "\n";
+                    cpp += "configTBDSP jack input 2 name " + node.InJack3 + "\n";
+                    cpp += "configTBDSP jack input 3 name " + node.InJack4 + "\n";
+                    cpp += "configTBDSP jack input 4 name " + node.InJack5 + "\n";
+                    cpp += "configTBDSP jack input 5 name " + node.InJack6 + "\n";
+                    cpp += "configTBDSP jack input 6 name " + node.InJack7 + "\n";
+                    cpp += "configTBDSP jack input 7 name " + node.InJack8 + "\n";
+                    
+                    cpp += "configTBDSP jack output 0 name " + node.OutJackA + "\n";
+                    cpp += "configTBDSP jack output 1 name " + node.OutJackB + "\n";
+                    cpp += "configTBDSP jack output 2 name " + node.OutJackC + "\n";
+                    cpp += "configTBDSP jack output 3 name " + node.OutJackD + "\n";
+                    cpp += "configTBDSP jack output 4 name " + node.OutJackE + "\n";
+                    cpp += "configTBDSP jack output 5 name " + node.OutJackF + "\n";
+                }
 			}
 			cpp += "\nSOLPATCH_END\n";
 			//console.log(cpp);
@@ -253,7 +261,7 @@ var RED = (function() {
             // var setOfAllNodes = RED.nodes.createCompleteNodeSet();
             // var stringOfAllJSON = JSON.stringify(RED.nodes.createExportableNodeSet(setOfAllNodes));            
             var stringOfAllJSON = JSON.stringify(RED.nodes.createCompleteNodeSet())
-            console.log(stringOfAllJSON);
+            // console.log(stringOfAllJSON);
             
             var cppBlob = new Blob([cpp, stringOfAllJSON], {type: "text/plain;charset=utf-8"});
             saveAs(cppBlob, solPatchFileName);
@@ -274,8 +282,6 @@ var RED = (function() {
             
             
 			//RED.view.dirty(false);
-            
-
 		}
 	}
 
